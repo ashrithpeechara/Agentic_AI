@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agentic AI — ReAct Loop Agent</title>
+  <meta name="description" content="Task 3: Agentic AI using the ReAct (Reason + Act) pattern with real tools." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #07090f;
+      --bg-card:    #0d1117;
+      --bg-trace:   #0a0f1a;
+      --border:     #1a2540;
+      --accent:     #3b82f6;
+      --accent-2:   #8b5cf6;
+      --accent-3:   #06b6d4;
+      --success:    #10b981;
+      --warn:       #f59e0b;
+      --danger:     #ef4444;
+      --text-hi:    #e2e8f0;
+      --text-mid:   #94a3b8;
+      --text-lo:    #475569;
+      --radius:     14px;
+      --mono:       'Fira Code', 'Courier New', monospace;
+      --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+
+      /* Event colors */
+      --c-thought:  #8b5cf6;
+      --c-action:   #f59e0b;
+      --c-observe:  #06b6d4;
+      --c-final:    #10b981;
+      --c-error:    #ef4444;
+      --c-iter:     #3b82f6;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text-hi);
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+
+    /* Ambient */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 15% 0%, #3b82f608 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 85% 100%, #8b5cf608 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 40px 20px 80px;
+    }
+
+    /* ── Header ───────────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 16px;
+      border-radius: 20px;
+      background: #8b5cf610;
+      border: 1px solid #8b5cf630;
+      color: #a78bfa;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .header h1 {
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.8px;
+      background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      font-size: 14px;
+      color: var(--text-mid);
+      line-height: 1.6;
+    }
+
+    /* ── Tools Strip ──────────────────────────────── */
+    .tools-strip {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 36px;
+    }
+
+    .tool-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      font-size: 12px;
+      color: var(--text-mid);
+    }
+
+    .tool-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+    }
+
+    /* ── Input Card ───────────────────────────────── */
+    .input-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 26px;
+      margin-bottom: 28px;
+    }
+
+    .input-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-lo);
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    #task-input {
+      flex: 1;
+      background: #060a10;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--text-hi);
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    #task-input::placeholder { color: var(--text-lo); }
+    #task-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px #3b82f620;
+    }
+
+    #run-btn {
+      padding: 12px 24px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+      color: #fff;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: var(--transition);
+      box-shadow: 0 4px 20px #8b5cf630;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    #run-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px #8b5cf640;
+    }
+
+    #run-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .chip {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-mid);
+      font-size: 12px;
+      cursor: pointer;
+      transition: var(--transition);
+      font-family: inherit;
+    }
+
+    .chip:hover {
+      border-color: var(--accent-2);
+      color: var(--text-hi);
+      background: #8b5cf610;
+    }
+
+    /* ── Trace Panel ──────────────────────────────── */
+    .trace-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .trace-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-lo);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .live-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 1.5s ease infinite;
+      display: none;
+    }
+
+    .live-dot.active { display: block; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .trace-panel {
+      background: var(--bg-trace);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      min-height: 200px;
+      overflow: hidden;
+    }
+
+    .trace-empty {
+      padding: 60px;
+      text-align: center;
+      color: var(--text-lo);
+      font-size: 13px;
+    }
+
+    .trace-empty .icon { font-size: 36px; margin-bottom: 12px; display: block; }
+
+    /* ── Trace Events ─────────────────────────────── */
+    .events { padding: 12px; }
+
+    .event {
+      display: flex;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      margin-bottom: 6px;
+      animation: slideIn 0.2s ease;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    @keyframes slideIn {
+      from { opacity:0; transform: translateX(-8px); }
+      to   { opacity:1; transform: translateX(0); }
+    }
+
+    .event-icon {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .event-body { flex: 1; min-width: 0; }
+
+    .event-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+
+    .event-text {
+      color: var(--text-mid);
+      word-break: break-word;
+    }
+
+    .event-text code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: #0a0f1a;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: #7dd3fc;
+    }
+
+    /* Event type styles */
+    .event.ev-iter {
+      background: #3b82f608;
+      border: 1px solid #3b82f620;
+    }
+    .event.ev-iter .event-label { color: var(--c-iter); }
+    .event.ev-iter .event-icon  { background: #3b82f620; color: var(--c-iter); }
+
+    .event.ev-thought {
+      background: #8b5cf608;
+      border: 1px solid #8b5cf620;
+    }
+    .event.ev-thought .event-label { color: var(--c-thought); }
+    .event.ev-thought .event-icon  { background: #8b5cf620; color: var(--c-thought); }
+
+    .event.ev-action {
+      background: #f59e0b08;
+      border: 1px solid #f59e0b20;
+    }
+    .event.ev-action .event-label  { color: var(--c-action); }
+    .event.ev-action .event-icon   { background: #f59e0b20; color: var(--c-action); }
+    .event.ev-action .event-text   { font-family: var(--mono); font-size: 12.5px; color: #fcd34d; }
+
+    .event.ev-observe {
+      background: #06b6d408;
+      border: 1px solid #06b6d420;
+    }
+    .event.ev-observe .event-label { color: var(--c-observe); }
+    .event.ev-observe .event-icon  { background: #06b6d420; color: var(--c-observe); }
+
+    .event.ev-final {
+      background: #10b98112;
+      border: 1px solid #10b98140;
+      margin-top: 8px;
+    }
+    .event.ev-final .event-label { color: var(--c-final); }
+    .event.ev-final .event-icon  { background: #10b98120; color: var(--c-final); }
+    .event.ev-final .event-text  { color: var(--text-hi); font-size: 14px; line-height: 1.7; }
+
+    .event.ev-error {
+      background: #ef444408;
+      border: 1px solid #ef444430;
+    }
+    .event.ev-error .event-label { color: var(--c-error); }
+    .event.ev-error .event-icon  { background: #ef444420; color: var(--c-error); }
+
+    /* Markdown in final answer */
+    .event.ev-final .event-text p  { margin-bottom: 6px; }
+    .event.ev-final .event-text p:last-child { margin-bottom: 0; }
+    .event.ev-final .event-text strong { font-weight: 600; color: #a5f3fc; }
+    .event.ev-final .event-text ul, 
+    .event.ev-final .event-text ol { padding-left: 18px; margin: 6px 0; }
+    .event.ev-final .event-text li { margin-bottom: 3px; }
+    .event.ev-final .event-text code {
+      background: #0a0f1a;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #7dd3fc;
+    }
+
+    /* ── Stats bar ────────────────────────────────── */
+    .stats-bar {
+      display: none;
+      justify-content: center;
+      gap: 24px;
+      padding: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-top: 16px;
+    }
+
+    .stats-bar.show { display: flex; }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-val {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-hi);
+    }
+
+    .stat-lbl {
+      font-size: 11px;
+      color: var(--text-lo);
+      margin-top: 2px;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 12px;
+      color: var(--text-lo);
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="badge">🤖 ReAct Agent</div>
+    <h1>Agentic AI</h1>
+    <p>Give the agent any task — it plans, reasons, uses tools,<br>
+       and iterates until it has a complete answer.</p>
+  </div>
+
+  <!-- Tools strip -->
+  <div class="tools-strip">
+    <div class="tool-badge"><span class="tool-dot" style="background:#f59e0b"></span>Calculator</div>
+    <div class="tool-badge"><span class="tool-dot" style="background:#06b6d4"></span>Current DateTime</div>
+    <div class="tool-badge"><span class="tool-dot" style="background:#3b82f6"></span>Wikipedia Search</div>
+    <div class="tool-badge"><span class="tool-dot" style="background:#8b5cf6"></span>Text Analyzer</div>
+  </div>
+
+  <!-- Input Card -->
+  <div class="input-card">
+    <div class="input-label">🎯 Agent Task</div>
+    <div class="input-row">
+      <input
+        id="task-input"
+        type="text"
+        placeholder="e.g. What is 15% of 847? Also tell me today's date."
+        autocomplete="off"
+      />
+      <button id="run-btn">
+        <span id="btn-icon">▶</span>
+        <span id="btn-label">Run Agent</span>
+      </button>
+    </div>
+    <div class="chips">
+      <button class="chip" onclick="setTask(this)">What is 25% of 480 and what is today's date?</button>
+      <button class="chip" onclick="setTask(this)">Search Wikipedia for Artificial Intelligence</button>
+      <button class="chip" onclick="setTask(this)">Calculate sqrt(144) + 50 and tell me the current time</button>
+      <button class="chip" onclick="setTask(this)">What is the capital of France? Also what is 2024 divided by 8?</button>
+    </div>
+  </div>
+
+  <!-- Trace Panel -->
+  <div class="trace-header">
+    <div class="trace-title">
+      <span class="live-dot" id="live-dot"></span>
+      Agent Execution Trace
+    </div>
+    <div id="iter-counter" style="font-size:12px;color:var(--text-lo)"></div>
+  </div>
+
+  <div class="trace-panel" id="trace-panel">
+    <div class="trace-empty" id="trace-empty">
+      <span class="icon">🤖</span>
+      The agent's reasoning steps will appear here in real-time.
+    </div>
+    <div class="events" id="events" style="display:none"></div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat">
+      <div class="stat-val" id="stat-iters">0</div>
+      <div class="stat-lbl">Iterations</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="stat-tools">0</div>
+      <div class="stat-lbl">Tool Calls</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="stat-thoughts">0</div>
+      <div class="stat-lbl">Thoughts</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="stat-time">0s</div>
+      <div class="stat-lbl">Time</div>
+    </div>
+  </div>
+
+  <div class="footer">Task 3 — Agentic AI &nbsp;·&nbsp; ReAct Pattern &nbsp;·&nbsp; Google Gemini 3.5 Flash</div>
+</div>
+
+<script>
+  marked.setOptions({ breaks: true, gfm: true });
+
+  const taskInput   = document.getElementById('task-input');
+  const runBtn      = document.getElementById('run-btn');
+  const btnIcon     = document.getElementById('btn-icon');
+  const btnLabel    = document.getElementById('btn-label');
+  const tracePanel  = document.getElementById('trace-panel');
+  const traceEmpty  = document.getElementById('trace-empty');
+  const eventsEl    = document.getElementById('events');
+  const liveDot     = document.getElementById('live-dot');
+  const iterCounter = document.getElementById('iter-counter');
+  const statsBar    = document.getElementById('stats-bar');
+
+  let isRunning = false;
+  let startTime = 0;
+  let stats     = { iters: 0, tools: 0, thoughts: 0 };
+
+  function setTask(el) {
+    taskInput.value = el.textContent.trim();
+    taskInput.focus();
+  }
+
+  function resetUI() {
+    eventsEl.innerHTML = '';
+    eventsEl.style.display = 'none';
+    traceEmpty.style.display = 'block';
+    statsBar.classList.remove('show');
+    iterCounter.textContent = '';
+    stats = { iters: 0, tools: 0, thoughts: 0 };
+  }
+
+  // ── Add event to trace ──────────────────────────────────
+  function addEvent(type, content) {
+    traceEmpty.style.display = 'none';
+    eventsEl.style.display   = 'block';
+
+    const configs = {
+      iteration: { cls: 'ev-iter',     icon: '🔄', label: `Iteration ${content}` },
+      thought:   { cls: 'ev-thought',  icon: '💭', label: 'Thought'             },
+      action:    { cls: 'ev-action',   icon: '⚡', label: 'Action'              },
+      observation:{ cls: 'ev-observe', icon: '👁',  label: 'Observation'        },
+      final:     { cls: 'ev-final',    icon: '✅', label: 'Final Answer'        },
+      error:     { cls: 'ev-error',    icon: '❌', label: 'Error'               },
+      limit:     { cls: 'ev-error',    icon: '⚠',  label: 'Limit Reached'      },
+      plan:      { cls: 'ev-iter',     icon: '🎯', label: 'Agent Started'       },
+    };
+
+    const cfg = configs[type] || { cls: 'ev-iter', icon: '•', label: type };
+    const row = document.createElement('div');
+    row.className = `event ${cfg.cls}`;
+
+    let bodyHtml = '';
+    if (type === 'iteration') {
+      bodyHtml = `<div class="event-label">${cfg.label}</div>`;
+    } else if (type === 'final') {
+      bodyHtml = `
+        <div class="event-label">${cfg.label}</div>
+        <div class="event-text">${marked.parse(content)}</div>`;
+    } else {
+      bodyHtml = `
+        <div class="event-label">${cfg.label}</div>
+        <div class="event-text">${escapeHtml(content)}</div>`;
+    }
+
+    row.innerHTML = `
+      <div class="event-icon">${cfg.icon}</div>
+      <div class="event-body">${bodyHtml}</div>
+    `;
+
+    eventsEl.appendChild(row);
+    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function escapeHtml(s) {
+    return s
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/`([^`]+)`/g,'<code>$1</code>');
+  }
+
+  // ── Run agent ───────────────────────────────────────────
+  function runAgent() {
+    const task = taskInput.value.trim();
+    if (!task || isRunning) return;
+
+    isRunning = true;
+    startTime = Date.now();
+    resetUI();
+
+    runBtn.disabled = true;
+    btnIcon.textContent = '⏳';
+    btnLabel.textContent = 'Running…';
+    liveDot.classList.add('active');
+
+    const url = `/api/agent/run?task=${encodeURIComponent(task)}`;
+    const es  = new EventSource(url);
+
+    es.onmessage = (e) => {
+      const evt = JSON.parse(e.data);
+      const { type, content } = evt;
+
+      addEvent(type, content);
+
+      // Update stats
+      if (type === 'iteration') {
+        stats.iters++;
+        iterCounter.textContent = `Iteration ${content}`;
+      }
+      if (type === 'thought')     stats.thoughts++;
+      if (type === 'action')      stats.tools++;
+
+      if (type === 'final' || type === 'error' || type === 'limit') {
+        es.close();
+        finish();
+      }
+    };
+
+    es.onerror = () => { es.close(); finish(); };
+  }
+
+  function finish() {
+    isRunning = false;
+    runBtn.disabled = false;
+    btnIcon.textContent = '▶';
+    btnLabel.textContent = 'Run Agent';
+    liveDot.classList.remove('active');
+    iterCounter.textContent = '';
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+    document.getElementById('stat-iters').textContent   = stats.iters;
+    document.getElementById('stat-tools').textContent   = stats.tools;
+    document.getElementById('stat-thoughts').textContent = stats.thoughts;
+    document.getElementById('stat-time').textContent    = elapsed;
+    statsBar.classList.add('show');
+  }
+
+  taskInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') runAgent();
+  });
+  runBtn.addEventListener('click', runAgent);
+  taskInput.focus();
+</script>
+</body>
+</html>

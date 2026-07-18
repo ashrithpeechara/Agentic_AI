@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prompt Chaining — 3-Step LLM Pipeline</title>
+  <meta name="description" content="Task 2: Multi-step prompt chaining with Google Gemini — Summary, Key Points, and Questions pipeline." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep:    #070b12;
+      --bg-card:    #0f1623;
+      --bg-step:    #111c2e;
+      --border:     #1e2d45;
+      --border-hi:  #2d4a7a;
+      --accent-1:   #3b82f6;
+      --accent-2:   #8b5cf6;
+      --accent-3:   #06b6d4;
+      --text-hi:    #e2e8f0;
+      --text-mid:   #94a3b8;
+      --text-lo:    #475569;
+      --success:    #10b981;
+      --warn:       #f59e0b;
+      --radius:     14px;
+      --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    html, body {
+      min-height: 100%;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-deep);
+      color: var(--text-hi);
+    }
+
+    /* Ambient blobs */
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::before {
+      width: 600px; height: 600px;
+      background: #3b82f608;
+      top: -200px; left: -200px;
+    }
+    body::after {
+      width: 500px; height: 500px;
+      background: #8b5cf608;
+      bottom: -200px; right: -200px;
+    }
+
+    /* ── Layout ───────────────────────────────────── */
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* ── Header ───────────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 20px;
+      background: #3b82f610;
+      border: 1px solid #3b82f630;
+      color: var(--accent-1);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .header h1 {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.8px;
+      background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      font-size: 15px;
+      color: var(--text-mid);
+      line-height: 1.6;
+    }
+
+    /* ── Input Card ───────────────────────────────── */
+    .input-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 40px;
+    }
+
+    .input-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-mid);
+      letter-spacing: 0.4px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    #topic-input {
+      flex: 1;
+      background: #0a1120;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 13px 16px;
+      color: var(--text-hi);
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    #topic-input::placeholder { color: var(--text-lo); }
+
+    #topic-input:focus {
+      border-color: var(--accent-1);
+      box-shadow: 0 0 0 3px #3b82f620;
+    }
+
+    #run-btn {
+      padding: 13px 28px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      color: #fff;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      box-shadow: 0 4px 20px #3b82f630;
+      flex-shrink: 0;
+    }
+
+    #run-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px #3b82f640;
+    }
+
+    #run-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Suggestion chips */
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .chip {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-mid);
+      font-size: 12px;
+      cursor: pointer;
+      transition: var(--transition);
+      font-family: inherit;
+    }
+
+    .chip:hover {
+      border-color: var(--accent-1);
+      color: var(--text-hi);
+      background: #3b82f610;
+    }
+
+    /* ── Pipeline visual ──────────────────────────── */
+    .pipeline-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pipeline-label::before, .pipeline-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    /* ── Step Card ────────────────────────────────── */
+    .step-card {
+      background: var(--bg-step);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .step-card + .step-card { margin-top: 4px; }
+
+    /* Connector arrow between cards */
+    .step-card::after {
+      content: '↓';
+      position: absolute;
+      bottom: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 16px;
+      color: var(--border-hi);
+      z-index: 2;
+    }
+
+    .step-card:last-child::after { display: none; }
+
+    /* Glowing left border when active */
+    .step-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--border);
+      transition: var(--transition);
+    }
+
+    .step-card.step-1::before { background: var(--accent-1); }
+    .step-card.step-2::before { background: var(--accent-2); }
+    .step-card.step-3::before { background: var(--accent-3); }
+
+    .step-card.idle::before { background: var(--border); }
+
+    /* States: idle | running | done */
+    .step-card.running {
+      border-color: var(--border-hi);
+      box-shadow: 0 0 30px #3b82f615;
+    }
+
+    .step-card.done {
+      border-color: #1a3a5c;
+    }
+
+    /* Step header */
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 20px;
+      cursor: default;
+    }
+
+    .step-num {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+      color: var(--text-lo);
+      background: #0a1120;
+      transition: var(--transition);
+    }
+
+    .step-card.step-1.running .step-num,
+    .step-card.step-1.done   .step-num { background: #3b82f620; border-color: #3b82f640; color: var(--accent-1); }
+    .step-card.step-2.running .step-num,
+    .step-card.step-2.done   .step-num { background: #8b5cf620; border-color: #8b5cf640; color: var(--accent-2); }
+    .step-card.step-3.running .step-num,
+    .step-card.step-3.done   .step-num { background: #06b6d420; border-color: #06b6d440; color: var(--accent-3); }
+
+    .step-info { flex: 1; }
+
+    .step-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-hi);
+    }
+
+    .step-desc {
+      font-size: 12px;
+      color: var(--text-lo);
+      margin-top: 2px;
+    }
+
+    .step-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-lo);
+    }
+
+    .status-icon { font-size: 14px; }
+
+    /* Spinner */
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #3b82f630;
+      border-top-color: var(--accent-1);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Step body — collapsed until done */
+    .step-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.5s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    .step-body.open {
+      max-height: 2000px;
+    }
+
+    .step-content {
+      padding: 0 20px 20px 20px;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+    }
+
+    /* Rendered content */
+    .step-content p  { font-size: 14px; line-height: 1.7; color: var(--text-mid); margin-bottom: 8px; }
+    .step-content p:last-child { margin-bottom: 0; }
+    .step-content strong { font-weight: 600; color: var(--text-hi); }
+    .step-content em { color: #a5b4fc; }
+    .step-content ul, .step-content ol { padding-left: 20px; margin: 6px 0; }
+    .step-content li { font-size: 14px; line-height: 1.7; color: var(--text-mid); margin-bottom: 4px; }
+    .step-content h3 { font-size: 14px; font-weight: 600; color: #c7d2fe; margin: 12px 0 6px; }
+    .step-content code {
+      background: #0a1120;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: 'Fira Code', monospace;
+      font-size: 12px;
+      color: #7dd3fc;
+    }
+
+    /* ── Results summary ──────────────────────────── */
+    .complete-banner {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 22px;
+      background: #052e16;
+      border: 1px solid #166534;
+      border-radius: var(--radius);
+      margin-top: 28px;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .complete-banner.show { display: flex; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    .complete-icon { font-size: 24px; }
+    .complete-text h3 { font-size: 14px; font-weight: 700; color: #4ade80; }
+    .complete-text p  { font-size: 12px; color: #86efac; margin-top: 2px; }
+
+    .btn-copy {
+      margin-left: auto;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid #166534;
+      background: transparent;
+      color: #4ade80;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .btn-copy:hover { background: #166534; }
+
+    /* ── Footer ───────────────────────────────────── */
+    .footer {
+      text-align: center;
+      margin-top: 48px;
+      font-size: 12px;
+      color: var(--text-lo);
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="badge">⛓ Prompt Chaining</div>
+    <h1>3-Step LLM Pipeline</h1>
+    <p>Enter any topic and watch the AI chain three prompts together —<br/>
+       each step's output feeds directly into the next.</p>
+  </div>
+
+  <!-- Input Card -->
+  <div class="input-card">
+    <div class="input-label">🔍 Enter a Topic</div>
+    <div class="input-row">
+      <input
+        id="topic-input"
+        type="text"
+        placeholder="e.g. Artificial Intelligence, Climate Change, Blockchain…"
+        autocomplete="off"
+      />
+      <button id="run-btn">
+        <span id="btn-icon">▶</span>
+        <span id="btn-label">Run Pipeline</span>
+      </button>
+    </div>
+    <div class="chips">
+      <button class="chip" onclick="setTopic(this)">Artificial Intelligence</button>
+      <button class="chip" onclick="setTopic(this)">Quantum Computing</button>
+      <button class="chip" onclick="setTopic(this)">Climate Change</button>
+      <button class="chip" onclick="setTopic(this)">Neural Networks</button>
+      <button class="chip" onclick="setTopic(this)">Large Language Models</button>
+    </div>
+  </div>
+
+  <!-- Pipeline -->
+  <div class="pipeline-label">Pipeline Steps</div>
+
+  <div class="steps">
+
+    <!-- Step 1 -->
+    <div class="step-card step-1 idle" id="card-1">
+      <div class="step-header">
+        <div class="step-num" id="num-1">1</div>
+        <div class="step-info">
+          <div class="step-title">Generate Summary</div>
+          <div class="step-desc">Comprehensive overview of the topic (3–4 paragraphs)</div>
+        </div>
+        <div class="step-status" id="status-1">
+          <span class="status-icon">○</span> Waiting
+        </div>
+      </div>
+      <div class="step-body" id="body-1">
+        <div class="step-content" id="content-1"></div>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step-card step-2 idle" id="card-2">
+      <div class="step-header">
+        <div class="step-num" id="num-2">2</div>
+        <div class="step-info">
+          <div class="step-title">Extract Key Points</div>
+          <div class="step-desc">5 key insights derived from the summary above</div>
+        </div>
+        <div class="step-status" id="status-2">
+          <span class="status-icon">○</span> Waiting
+        </div>
+      </div>
+      <div class="step-body" id="body-2">
+        <div class="step-content" id="content-2"></div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step-card step-3 idle" id="card-3">
+      <div class="step-header">
+        <div class="step-num" id="num-3">3</div>
+        <div class="step-info">
+          <div class="step-title">Generate Questions</div>
+          <div class="step-desc">3 thought-provoking questions from the key points above</div>
+        </div>
+        <div class="step-status" id="status-3">
+          <span class="status-icon">○</span> Waiting
+        </div>
+      </div>
+      <div class="step-body" id="body-3">
+        <div class="step-content" id="content-3"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Completion Banner -->
+  <div class="complete-banner" id="complete-banner">
+    <div class="complete-icon">✅</div>
+    <div class="complete-text">
+      <h3>Pipeline Complete!</h3>
+      <p id="complete-desc">All 3 steps finished successfully.</p>
+    </div>
+    <button class="btn-copy" id="copy-btn">📋 Copy Results</button>
+  </div>
+
+  <div class="footer">Task 2 — Prompt Chaining &nbsp;·&nbsp; Google Gemini 3.5 Flash</div>
+
+</div>
+
+<script>
+  marked.setOptions({ breaks: true, gfm: true });
+
+  const topicInput   = document.getElementById('topic-input');
+  const runBtn       = document.getElementById('run-btn');
+  const btnIcon      = document.getElementById('btn-icon');
+  const btnLabel     = document.getElementById('btn-label');
+  const completeBanner = document.getElementById('complete-banner');
+  const copyBtn      = document.getElementById('copy-btn');
+
+  let isRunning = false;
+  let results = {};
+
+  // ── Helper: set topic from chip ────────────────────
+  function setTopic(el) {
+    topicInput.value = el.textContent;
+    topicInput.focus();
+  }
+
+  // ── Step state management ───────────────────────────
+  function setStepState(step, state) {
+    const card   = document.getElementById(`card-${step}`);
+    const status = document.getElementById(`status-${step}`);
+    const body   = document.getElementById(`body-${step}`);
+
+    card.classList.remove('idle', 'running', 'done');
+
+    if (state === 'running') {
+      card.classList.add('running');
+      status.innerHTML = `<div class="spinner"></div> Processing…`;
+    } else if (state === 'done') {
+      card.classList.add('done');
+      status.innerHTML = `<span class="status-icon" style="color:#10b981">✓</span> Done`;
+      body.classList.add('open');
+    } else {
+      card.classList.add('idle');
+      status.innerHTML = `<span class="status-icon">○</span> Waiting`;
+      body.classList.remove('open');
+    }
+  }
+
+  function setStepContent(step, text) {
+    const el = document.getElementById(`content-${step}`);
+    el.innerHTML = marked.parse(text);
+  }
+
+  function resetAll() {
+    [1,2,3].forEach(i => {
+      setStepState(i, 'idle');
+      document.getElementById(`content-${i}`).innerHTML = '';
+    });
+    completeBanner.classList.remove('show');
+    results = {};
+  }
+
+  // ── Run the pipeline via SSE ────────────────────────
+  function runPipeline() {
+    const topic = topicInput.value.trim();
+    if (!topic || isRunning) return;
+
+    isRunning = true;
+    resetAll();
+
+    runBtn.disabled = true;
+    btnIcon.textContent = '⏳';
+    btnLabel.textContent = 'Running…';
+
+    const url = `/api/chain/stream?topic=${encodeURIComponent(topic)}`;
+    const es  = new EventSource(url);
+
+    es.addEventListener('step_start', (e) => {
+      const { step } = JSON.parse(e.data);
+      setStepState(step, 'running');
+      // Scroll to that card
+      document.getElementById(`card-${step}`).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    es.addEventListener('step_done', (e) => {
+      const { step, content } = JSON.parse(e.data);
+      results[step] = content;
+      setStepContent(step, content);
+      setStepState(step, 'done');
+    });
+
+    es.addEventListener('complete', (e) => {
+      const { topic } = JSON.parse(e.data);
+      completeBanner.classList.add('show');
+      document.getElementById('complete-desc').textContent =
+        `"${topic}" analyzed in 3 steps.`;
+      completeBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      es.close();
+      finish();
+    });
+
+    es.addEventListener('error', (e) => {
+      let msg = 'An error occurred.';
+      try { msg = JSON.parse(e.data).message; } catch {}
+      alert('Error: ' + msg);
+      es.close();
+      finish();
+    });
+
+    es.onerror = () => {
+      es.close();
+      finish();
+    };
+  }
+
+  function finish() {
+    isRunning = false;
+    runBtn.disabled = false;
+    btnIcon.textContent = '▶';
+    btnLabel.textContent = 'Run Pipeline';
+  }
+
+  // ── Copy results ────────────────────────────────────
+  copyBtn.addEventListener('click', () => {
+    const topic = topicInput.value.trim();
+    const text = [
+      `TOPIC: ${topic}`,
+      '',
+      '── SUMMARY ──────────────────────────────',
+      results[1] || '',
+      '',
+      '── KEY POINTS ───────────────────────────',
+      results[2] || '',
+      '',
+      '── QUESTIONS ────────────────────────────',
+      results[3] || '',
+    ].join('\n');
+
+    navigator.clipboard.writeText(text).then(() => {
+      copyBtn.textContent = '✓ Copied!';
+      setTimeout(() => copyBtn.textContent = '📋 Copy Results', 2000);
+    });
+  });
+
+  // ── Keyboard shortcut ───────────────────────────────
+  topicInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') runPipeline();
+  });
+
+  runBtn.addEventListener('click', runPipeline);
+  topicInput.focus();
+</script>
+</body>
+</html>
