@@ -6,10 +6,27 @@ A complete 4-task assignment covering LLM workflows, prompt chaining, agentic AI
 
 ```
 agentic_ai_assignment/
+├── assignments/              ← Standalone single-file assignment scripts & specialized agents
+│   ├── llm-workflow.py
+│   ├── prompt-chaining.py
+│   ├── agentic-ai.py
+│   ├── rag_ai.py
+│   ├── document_rag_agent.py
+│   ├── research_agent.py
+│   └── security_analysis_agent.py
+├── LAB_EXPERIEMENTS/         ← Lab Experiments 1-5 with Gemini & SQLite
+│   ├── task1_text_to_sql.py   (Text-to-SQL Workflow)
+│   ├── task2_rag_qa.py        (RAG-based QA System)
+│   ├── task3_prompt_chaining.py (Multi-Step Prompt Chaining)
+│   ├── task4_sql_agent.py     (Autonomous SQL Agent)
+│   ├── task5_multi_agent_sdr.py (Multi-Agent SDR Pipeline)
+│   └── company.db
 ├── task1_llm_workflow/       ← Task 1: LLM Chat (CLI + Web UI)
 ├── task2_prompt_chaining/    ← Task 2: 3-Step Prompt Chain (CLI + Web UI)
 ├── task3_agentic_ai/         ← Task 3: ReAct Agent with Tools (CLI + Web UI)
-└── task4_rag_qa/             ← Task 4: RAG Question Answering (CLI + Web UI)
+├── task4_rag_qa/             ← Task 4: RAG Question Answering (CLI + Web UI)
+├── assignment_1_agentic_ai.pdf ← Assignment submission PDF report
+└── generate_assignment_pdf.py ← Automated PDF report generator
 ```
 
 ---

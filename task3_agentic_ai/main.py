@@ -46,26 +46,27 @@ def build_system_prompt() -> str:
 {get_tools_description()}
 
 ## Response Format (STRICT — follow exactly)
-You MUST use this exact format for every response until you have a final answer:
+You MUST ALWAYS begin your output with THOUGHT: followed by your reasoning, then write ACTION: or FINAL_ANSWER:.
 
-THOUGHT: [Your reasoning about what to do next]
+THOUGHT: [Your explicit reasoning about what to do next]
 ACTION: tool_name('argument')
 
 OR, when you have enough information to answer:
 
-THOUGHT: [Your reasoning about why you have enough info]
+THOUGHT: [Your explicit reasoning about why you have enough info]
 FINAL_ANSWER: [Complete, well-formatted answer to the original task]
 
 ## Rules
-1. Output ONLY one THOUGHT + ACTION pair at a time (or THOUGHT + FINAL_ANSWER).
-2. Never make up tool results — wait for the OBSERVATION.
-3. Use the calculator for ANY math, even simple calculations.
-4. Use wikipedia_search for factual questions about topics, people, places, events.
-5. Use current_datetime when asked about today's date or time.
-6. Use text_analyzer for word/character counts.
-7. After receiving OBSERVATION results, reason about them before continuing.
-8. Your FINAL_ANSWER must be complete, clear, and directly answer the user's task.
-9. Do NOT wrap tool arguments in extra quotes if they contain quotes — use single quotes inside.
+1. ALWAYS include THOUGHT: as the very first line of every response.
+2. Output ONLY one THOUGHT + ACTION pair at a time (or THOUGHT + FINAL_ANSWER).
+3. Never make up tool results — wait for the OBSERVATION.
+4. Use the calculator for ANY math, even simple calculations.
+5. Use wikipedia_search for factual questions about topics, people, places, events.
+6. Use current_datetime when asked about today's date or time.
+7. Use text_analyzer for word/character counts.
+8. After receiving OBSERVATION results, reason about them before continuing.
+9. Your FINAL_ANSWER must be complete, clear, and directly answer the user's task.
+10. Do NOT wrap tool arguments in extra quotes if they contain quotes — use single quotes inside.
 """
 
 
@@ -88,11 +89,18 @@ def parse_response(text: str) -> dict:
     thought_match = re.search(r"THOUGHT:\s*(.+?)(?=ACTION:|FINAL_ANSWER:|$)", text, re.DOTALL | re.IGNORECASE)
     if thought_match:
         result["thought"] = thought_match.group(1).strip()
+    else:
+        # Fallback: check if there is leading text before ACTION or FINAL_ANSWER
+        leading = re.split(r"(?:ACTION:|FINAL_ANSWER:)", text, maxsplit=1, flags=re.IGNORECASE)[0].strip()
+        if leading:
+            result["thought"] = leading
 
     # Extract FINAL_ANSWER
     final_match = re.search(r"FINAL_ANSWER:\s*(.+)", text, re.DOTALL | re.IGNORECASE)
     if final_match:
         result["final_answer"] = final_match.group(1).strip()
+        if not result["thought"]:
+            result["thought"] = "I have gathered all the necessary information to formulate the final answer."
         return result
 
     # Extract ACTION
@@ -104,11 +112,13 @@ def parse_response(text: str) -> dict:
         result["action"]     = action_match.group(1).strip()
         result["action_arg"] = action_match.group(3).strip()
     else:
-        # Broader fallback: tool_name('...')
         alt_match = re.search(r"ACTION:\s*(\w+)\s*\((.*?)\)", text, re.DOTALL | re.IGNORECASE)
         if alt_match:
             result["action"]     = alt_match.group(1).strip()
             result["action_arg"] = alt_match.group(2).strip().strip("'\"`")
+
+    if not result["thought"] and result["action"]:
+        result["thought"] = f"Executing tool {result['action']} to obtain required information."
 
     return result
 

@@ -1,0 +1,4 @@
+The Agentic AI framework, developed in 2026, revolutionizes how autonomous systems operate. 
+Unlike traditional AI which only answers questions, agentic AI can take actions in the physical or digital world. 
+It uses tools, reasons about its environment, and works iteratively to solve complex goals.
+The core components of an Agentic AI include a Planner, an Execution Engine, and a Memory Module.
